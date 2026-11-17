@@ -1,101 +1,140 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-
 <title>AI Vision Egypt</title>
-
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-
 <style>
 body {
-  background: #101d30;
+  margin: 0;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  background: #10233f;
   color: white;
   text-align: center;
-  font-family: Arial;
 }
-h2 { color: gold; }
-#camera { margin: auto; }
-#result { font-size: 22px; color: gold; }
+h1 { color: #e5bd68; }
+.card {
+  max-width: 600px;
+  margin: auto;
+  padding: 20px;
+  background: #fff;
+  color: #10233f;
+  border-radius: 18px;
+}
+button {
+  background: #d8ad55;
+  border: 0;
+  padding: 14px 25px;
+  margin: 10px;
+  border-radius: 10px;
+  font-size: 17px;
+  cursor: pointer;
+}
+#webcam-container canvas {
+  width: 100%;
+  max-width: 400px;
+  border-radius: 12px;
+}
+#label-container {
+  font-size: 19px;
+  line-height: 2;
+  margin-top: 15px;
+}
+#status { color: #e5bd68; }
 </style>
 </head>
-
 <body>
 
-<h2>AI Vision Egypt</h2>
-<p>وجّه الكاميرا نحو الأثر</p>
+<h1>🇪🇬 AI Vision Egypt</h1>
+<p>اكتشف الآثار المصرية بالذكاء الاصطناعي</p>
 
-<div id="camera"></div>
-<h3 id="result">جاري تشغيل الكاميرا...</h3>
+<div class="card">
+  <h2>التعرف على الآثار</h2>
+  <button onclick="init()">تشغيل الكاميرا</button>
+  <button onclick="stopCamera()">إيقاف الكاميرا</button>
+  <p id="status">اضغط تشغيل الكاميرا للبدء</p>
+  <div id="webcam-container"></div>
+  <h3>نتيجة التعرف</h3>
+  <div id="label-container">في انتظار الكاميرا...</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
 
 <script>
-const URL =
-"https://teachablemachine.withgoogle.com/models/CvfTSTcqR/";
+const URL = "https://teachablemachine.withgoogle.com/models/CvfTSTcqR/";
 
-let model;
-let webcam;
-let lastResult = "";
+let model, webcam, running = false;
 
-async function startCamera() {
+async function init() {
+  if (running) return;
+
   try {
+    document.getElementById("status").innerText =
+      "جارٍ تحميل نموذج الذكاء الاصطناعي...";
+
+    if (!navigator.mediaDevices ||
+        !navigator.mediaDevices.getUserMedia) {
+      throw new Error("المتصفح لا يدعم تشغيل الكاميرا هنا. افتح الصفحة في Chrome.");
+    }
+
     model = await tmImage.load(
       URL + "model.json",
       URL + "metadata.json"
     );
 
-    webcam = new tmImage.Webcam(320, 320, true);
+    webcam = new tmImage.Webcam(400, 300, true);
 
-    await webcam.setup();
+    await webcam.setup({ facingMode: "environment" });
     await webcam.play();
 
-    document.getElementById("camera").appendChild(
-      webcam.canvas
-    );
+    document.getElementById("webcam-container").innerHTML = "";
+    document.getElementById("webcam-container")
+      .appendChild(webcam.canvas);
+
+    running = true;
+    document.getElementById("status").innerText =
+      "الكاميرا تعمل بنجاح!";
 
     window.requestAnimationFrame(loop);
-
-  } catch (error) {
-    document.getElementById("result").innerText =
-      "تعذر تشغيل الكاميرا: " + error.message;
+  } catch(error) {
+    document.getElementById("status").innerText =
+      "خطأ: " + error.message;
+    stopCamera();
   }
 }
 
 async function loop() {
+  if (!running) return;
   webcam.update();
   await predict();
-  window.requestAnimationFrame(loop);
+  if (running) window.requestAnimationFrame(loop);
 }
 
 async function predict() {
   const predictions = await model.predict(webcam.canvas);
 
-  predictions.sort((a, b) =>
-    b.probability - a.probability
-  );
+  predictions.sort((a,b) => b.probability - a.probability);
 
-  const best = predictions[0];
-
-  if (best.probability >= 0.70) {
-    const name = best.className;
-
-    document.getElementById("result").innerText =
-      "الأثر هو: " + name + " - " +
-      (best.probability * 100).toFixed(1) + "%";
-
-    if (name !== lastResult) {
-      lastResult = name;
-
-      if (window.AppInventor) {
-        window.AppInventor.setWebViewString(name);
-      }
-    }
-  }
+  document.getElementById("label-container").innerHTML =
+    predictions.map(p =>
+      `<div>${p.className}: ${(p.probability * 100).toFixed(1)}%</div>`
+    ).join("");
 }
 
-startCamera();
+function stopCamera() {
+  running = false;
+
+  if (webcam && webcam.stream) {
+    webcam.stop();
+  }
+
+  document.getElementById("webcam-container").innerHTML = "";
+  document.getElementById("status").innerText = "تم إيقاف الكاميرا";
+}
 </script>
 
 </body>
 </html>
+
