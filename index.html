@@ -4,7 +4,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>AI Vision Egypt</title>
 
 <style>
@@ -22,7 +21,7 @@ body {
 }
 
 .container {
-    max-width: 650px;
+    max-width: 700px;
     margin: auto;
     padding: 25px;
     background: #132b46;
@@ -37,17 +36,18 @@ h1 {
 
 .subtitle {
     color: #ddd;
-    margin-bottom: 20px;
+    line-height: 1.6;
 }
 
 #camera {
     width: 100%;
     max-width: 400px;
     min-height: 250px;
-    margin: 15px auto;
+    margin: 20px auto;
     overflow: hidden;
     border: 3px solid #d4a63b;
     border-radius: 15px;
+    background: #07182e;
 }
 
 #camera canvas {
@@ -57,13 +57,13 @@ h1 {
 }
 
 button {
-    padding: 14px 25px;
+    padding: 14px 22px;
     margin: 8px;
     border: none;
     border-radius: 10px;
     background: #d4a63b;
     color: #07182e;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: bold;
     cursor: pointer;
 }
@@ -73,7 +73,7 @@ button:disabled {
     cursor: not-allowed;
 }
 
-.result {
+.card {
     margin-top: 20px;
     padding: 20px;
     background: #0b1c30;
@@ -92,9 +92,18 @@ button:disabled {
     font-size: 18px;
 }
 
+#monumentTitle {
+    color: #f3c34e;
+}
+
+#monumentLocation,
+#monumentDescription {
+    line-height: 1.8;
+}
+
 #status {
     color: #f3c34e;
-    margin-top: 15px;
+    margin: 15px;
 }
 
 .footer {
@@ -109,104 +118,71 @@ button:disabled {
 
 <div class="container">
 
-    <h1>AI VISION EGYPT</h1>
+<h1>AI VISION EGYPT</h1>
 
-    <p class="subtitle">
-        Discover Ancient Egyptian Monuments Using Artificial Intelligence
-    </p>
+<p class="subtitle">
+Discover Ancient Egyptian Monuments Using Artificial Intelligence
+</p>
 
-    <div id="camera"></div>
+<div id="camera"></div>
 
-    <p id="status">Ready to start</p>
+<p id="status">Ready to start</p>
 
-    <button id="startButton" onclick="startCamera()">
-        Start Camera
-    </button>
+<button id="startButton" onclick="startCamera()">
+Start Camera
+</button>
 
-    <button id="stopButton" onclick="stopCamera()" disabled>
-        Stop Camera
-    </button>
+<button id="stopButton" onclick="stopCamera()" disabled>
+Stop Camera
+</button>
 
-    <div class="result">
+<div class="card">
 
-        <h3>Recognition Result</h3>
+<h2>AI Recognition</h2>
 
-        <p id="objectName">Waiting for camera...</p>
+<p id="objectName">Waiting for camera...</p>
 
-        <p id="confidence">Accuracy: 0%</p>
-
-    </div>
-
-    <button onclick="speakCurrentResult()">
-        Speak Result
-    </button>
-
-<div class="result" id="monumentDetails">
-
-    <h2 style="color:#f3c34e;">Smart AI Tour Guide</h2>
-
-    <h3 id="monumentTitle">Monument Information</h3>
-
-    <p id="monumentLocation">Location will appear here</p>
-
-    <p id="monumentDescription">
-        Point your camera at an Egyptian monument to discover its history.
-    </p>
-
-    <button onclick="speakMonumentInfo()">
-        Listen to Historical Information
-    </button>
-
-
-<div class="result" id="monumentDetails">
-
-    <h2 style="color:#f3c34e;">Smart AI Tour Guide</h2>
-
-    <h3 id="monumentTitle">Monument Information</h3>
-
-    <p id="monumentLocation">Location will appear here</p>
-
-    <p id="monumentDescription">
-        Point your camera at an Egyptian monument to discover its history.
-    </p>
-
-    <button onclick="speakMonumentInfo()">
-        Listen to Historical Information
-    </button>
-
-<div class="result" id="monumentDetails">
-
-    <h2 style="color:#f3c34e;">Smart AI Tour Guide</h2>
-
-    <h3 id="monumentTitle">Monument Information</h3>
-
-    <p id="monumentLocation">Location will appear here</p>
-
-    <p id="monumentDescription">
-        Point your camera at an Egyptian monument to discover its history.
-    </p>
-
-    <button onclick="speakMonumentInfo()">
-        Listen to Historical Information
-    </button>
+<p id="confidence">Accuracy: 0%</p>
 
 </div>
 
-    <div class="footer">
-        AI Vision Egypt | Powered by Teachable Machine
-    </div>
+<div class="card">
+
+<h2 style="color:#f3c34e;">Smart AI Tour Guide</h2>
+
+<h3 id="monumentTitle">Monument Information</h3>
+
+<p id="monumentLocation">Location will appear here</p>
+
+<p id="monumentDescription">
+Point your camera at an Egyptian monument to discover its history.
+</p>
+
+<button onclick="speakMonumentInfo()">
+Listen to Historical Information
+</button>
 
 </div>
 
-<!-- TensorFlow.js -->
+<button onclick="speakCurrentResult()">
+Speak Monument Name
+</button>
+
+<div class="footer">
+AI Vision Egypt | Powered by Teachable Machine
+</div>
+
+</div>
+
+<!-- AI LIBRARIES -->
+
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.4/dist/tf.min.js"></script>
 
-<!-- Teachable Machine -->
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
 
 <script>
 
-// MODEL SETTINGS
+// MODEL URL
 
 const MODEL_URL =
 "https://teachablemachine.withgoogle.com/models/CvfTSTcqR/";
@@ -216,45 +192,115 @@ let webcam;
 let running = false;
 let currentResult = "";
 let lastSpokenResult = "";
-let lastSpokenTime = 0;
-    
-const monumentInfo = {
-    "Pyramids": {
-        name: "The Great Pyramids of Giza",
-        location: "Giza, Egypt",
-        description: "The Great Pyramids are among the most famous ancient monuments in the world. They were built as tombs for the ancient Egyptian kings."
-    },
-
-    "Sphinx": {
-        name: "The Great Sphinx",
-        location: "Giza, Egypt",
-        description: "The Great Sphinx is a giant statue with a lion's body and a human head. It is one of the most famous symbols of ancient Egypt."
-    },
-
-    "Tutankhamun": {
-        name: "King Tutankhamun's Treasures",
-        location: "Luxor, Egypt",
-        description: "King Tutankhamun was a young Egyptian pharaoh. His tomb contained many beautiful treasures."
-    },
-
-    "Abu Simbel": {
-        name: "Abu Simbel Temples",
-        location: "Aswan, Egypt",
-        description: "Abu Simbel is famous for its enormous statues of Pharaoh Ramses the Second."
-    }
-};
-
 
 const THRESHOLD = 0.75;
 
-// LOAD MODEL
+// MONUMENT DATABASE
+
+const monumentInfo = {
+
+    "pyramids": {
+        name: "The Great Pyramids of Giza",
+        location: "Giza, Egypt",
+        description:
+        "The Great Pyramids of Giza are among the most famous ancient monuments in the world. They were built as tombs for the ancient Egyptian kings. The Great Pyramid was built for King Khufu."
+    },
+
+    "sphinx": {
+        name: "The Great Sphinx",
+        location: "Giza, Egypt",
+        description:
+        "The Great Sphinx is a giant statue with a lion's body and a human head. It stands near the Pyramids of Giza and is one of the most famous symbols of ancient Egypt."
+    },
+
+    "tutankhamun": {
+        name: "King Tutankhamun",
+        location: "Valley of the Kings, Luxor, Egypt",
+        description:
+        "Tutankhamun was a young Egyptian pharaoh. His tomb was discovered by Howard Carter in 1922. It contained many beautiful treasures, including his famous golden mask."
+    },
+
+    "abu simbel": {
+        name: "Abu Simbel Temples",
+        location: "Aswan, Egypt",
+        description:
+        "Abu Simbel is famous for its enormous rock temples built by Pharaoh Ramses the Second. Four giant statues stand at the entrance of the Great Temple."
+    },
+
+    "karnak": {
+        name: "Karnak Temple",
+        location: "Luxor, Egypt",
+        description:
+        "Karnak Temple is one of the largest ancient religious complexes in the world. It contains enormous columns, statues and beautiful ancient Egyptian decorations."
+    },
+
+    "luxor temple": {
+        name: "Luxor Temple",
+        location: "Luxor, Egypt",
+        description:
+        "Luxor Temple is an ancient Egyptian temple on the east bank of the Nile River. It was built and expanded by several pharaohs."
+    },
+
+    "hatshepsut": {
+        name: "Temple of Hatshepsut",
+        location: "Deir el-Bahari, Luxor, Egypt",
+        description:
+        "The Temple of Hatshepsut is a beautiful ancient temple built for Queen Hatshepsut. It is famous for its impressive terraces and mountain setting."
+    },
+
+    "philae": {
+        name: "Philae Temple",
+        location: "Aswan, Egypt",
+        description:
+        "Philae Temple is dedicated to the goddess Isis. It is famous for its beautiful architecture and its location on an island near Aswan."
+    }
+
+};
+
+// FIND MONUMENT INFORMATION
+
+function findMonument(className) {
+
+    const key = className
+        .toLowerCase()
+        .trim();
+
+    if (monumentInfo[key]) {
+        return monumentInfo[key];
+    }
+
+    for (const item in monumentInfo) {
+
+        if (
+            key.includes(item) ||
+            item.includes(key)
+        ) {
+            return monumentInfo[item];
+        }
+
+    }
+
+    return {
+        name: className,
+        location: "Egypt",
+        description:
+        "This monument has been recognized by the AI model. More historical information will be added soon."
+    };
+
+}
+
+// LOAD AI MODEL
 
 async function loadModel() {
 
     const modelURL = MODEL_URL + "model.json";
+
     const metadataURL = MODEL_URL + "metadata.json";
 
-    model = await tmImage.load(modelURL, metadataURL);
+    model = await tmImage.load(
+        modelURL,
+        metadataURL
+    );
 
 }
 
@@ -278,9 +324,7 @@ async function startCamera() {
 
         webcam = new tmImage.Webcam(400, 300, false);
 
-        await webcam.setup({
-            facingMode: "environment"
-        });
+        await webcam.setup();
 
         await webcam.play();
 
@@ -293,13 +337,11 @@ async function startCamera() {
         running = true;
 
         document.getElementById("startButton").disabled = true;
+
         document.getElementById("stopButton").disabled = false;
 
         document.getElementById("status").innerText =
-        "Camera is running. Point it at an Egyptian monument.";
-
-        // Unlock English speech after user interaction
-        window.speechSynthesis.cancel();
+        "Camera is running. Point it at a monument.";
 
         predictLoop();
 
@@ -308,21 +350,39 @@ async function startCamera() {
         console.error(error);
 
         document.getElementById("status").innerText =
-        "Camera or model error: " + error.message;
+        "Error: " + error.message;
+
+        if (webcam) {
+            webcam.stop();
+        }
+
+        running = false;
+
+        document.getElementById("startButton").disabled = false;
+
+        document.getElementById("stopButton").disabled = true;
 
     }
 
 }
 
-// RECOGNITION LOOP
+// PREDICTION LOOP
 
 async function predictLoop() {
 
     if (!running) return;
 
-    webcam.update();
+    try {
 
-    await predict();
+        webcam.update();
+
+        await predict();
+
+    } catch (error) {
+
+        console.error(error);
+
+    }
 
     if (running) {
         requestAnimationFrame(predictLoop);
@@ -330,79 +390,93 @@ async function predictLoop() {
 
 }
 
-// PREDICT OBJECT
+// AI PREDICTION
 
 async function predict() {
 
-    try {
+    const predictions = await model.predict(webcam.canvas);
 
-        const predictions = await model.predict(webcam.canvas);
+    predictions.sort((a, b) =>
+        b.probability - a.probability
+    );
 
-        predictions.sort((a, b) =>
-            b.probability - a.probability
-        );
+    const best = predictions[0];
 
-        const best = predictions[0];
+    const name = best.className;
 
-        const name = best.className;
+    const accuracy = best.probability;
 
-        const accuracy = best.probability;
+    if (accuracy >= THRESHOLD) {
 
-        if (accuracy >= THRESHOLD) {
+        currentResult = name;
 
-            currentResult = name;
+        document.getElementById("objectName").innerText =
+        name;
 
-            document.getElementById("objectName").innerText =
-            name;
+        document.getElementById("confidence").innerText =
+        "Accuracy: " + (accuracy * 100).toFixed(1) + "%";
 
-            document.getElementById("confidence").innerText =
-            "Accuracy: " + (accuracy * 100).toFixed(1) + "%";
+        document.getElementById("status").innerText =
+        "Monument detected successfully!";
 
-            document.getElementById("status").innerText =
-            "Monument detected successfully!";
+        showMonumentInfo(name);
 
-            // Send result to MIT App Inventor if available
+        // Send result to MIT App Inventor
 
-            if (
-                window.AppInventor &&
-                typeof window.AppInventor.setWebViewString === "function"
-            ) {
-                window.AppInventor.setWebViewString(name);
-            }
+        if (
+            window.AppInventor &&
+            typeof window.AppInventor.setWebViewString === "function"
+        ) {
 
-            // SPEAK IN ENGLISH
-
-            const now = Date.now();
-
-            if (
-                name !== lastSpokenResult ||
-                now - lastSpokenTime > 6000
-            ) {
-
-                speakEnglish(
-                    "This monument is " + name
-                );
-
-                lastSpokenResult = name;
-                lastSpokenTime = now;
-
-            }
-
-        } else {
-
-            document.getElementById("objectName").innerText =
-            "No clear monument detected";
-
-            document.getElementById("confidence").innerText =
-            "Accuracy: " + (accuracy * 100).toFixed(1) + "%";
+            window.AppInventor.setWebViewString(name);
 
         }
 
-    } catch (error) {
+        // AUTOMATIC ENGLISH VOICE
 
-        console.error("Prediction error:", error);
+        if (name !== lastSpokenResult) {
+
+            const info = findMonument(name);
+
+            speakEnglish(
+                info.name + ". " +
+                info.location + ". " +
+                info.description
+            );
+
+            lastSpokenResult = name;
+
+        }
+
+    } else {
+
+        document.getElementById("objectName").innerText =
+        "No clear monument detected";
+
+        document.getElementById("confidence").innerText =
+        "Accuracy: " + (accuracy * 100).toFixed(1) + "%";
+
+        document.getElementById("status").innerText =
+        "Looking for a monument...";
 
     }
+
+}
+
+// DISPLAY MONUMENT INFORMATION
+
+function showMonumentInfo(className) {
+
+    const info = findMonument(className);
+
+    document.getElementById("monumentTitle").innerText =
+    info.name;
+
+    document.getElementById("monumentLocation").innerText =
+    "Location: " + info.location;
+
+    document.getElementById("monumentDescription").innerText =
+    info.description;
 
 }
 
@@ -411,9 +485,12 @@ async function predict() {
 function speakEnglish(text) {
 
     if (!window.speechSynthesis) {
+
         document.getElementById("status").innerText =
-        "Speech is not supported in this browser.";
+        "Speech is not supported.";
+
         return;
+
     }
 
     window.speechSynthesis.cancel();
@@ -421,8 +498,11 @@ function speakEnglish(text) {
     const speech = new SpeechSynthesisUtterance(text);
 
     speech.lang = "en-US";
+
     speech.rate = 0.9;
+
     speech.pitch = 1;
+
     speech.volume = 1;
 
     const voices = window.speechSynthesis.getVoices();
@@ -441,23 +521,47 @@ function speakEnglish(text) {
 
 }
 
-// SPEAK CURRENT RESULT
+// SPEAK MONUMENT INFORMATION
+
+function speakMonumentInfo() {
+
+    if (!currentResult) {
+
+        speakEnglish(
+            "Please point the camera at an Egyptian monument."
+        );
+
+        return;
+
+    }
+
+    const info = findMonument(currentResult);
+
+    speakEnglish(
+        info.name + ". " +
+        info.location + ". " +
+        info.description
+    );
+
+}
+
+// SPEAK MONUMENT NAME
 
 function speakCurrentResult() {
 
-    if (currentResult) {
+    if (!currentResult) {
 
         speakEnglish(
-            "This monument is " + currentResult
+            "No monument has been detected yet."
         );
 
-    } else {
-
-        speakEnglish(
-            "Please point the camera at an Egyptian monument"
-        );
+        return;
 
     }
+
+    const info = findMonument(currentResult);
+
+    speakEnglish(info.name);
 
 }
 
@@ -479,6 +583,7 @@ function stopCamera() {
     "Camera stopped";
 
     document.getElementById("startButton").disabled = false;
+
     document.getElementById("stopButton").disabled = true;
 
     document.getElementById("objectName").innerText =
@@ -487,7 +592,17 @@ function stopCamera() {
     document.getElementById("confidence").innerText =
     "Accuracy: 0%";
 
+    document.getElementById("monumentTitle").innerText =
+    "Monument Information";
+
+    document.getElementById("monumentLocation").innerText =
+    "Location will appear here";
+
+    document.getElementById("monumentDescription").innerText =
+    "Point your camera at an Egyptian monument.";
+
     currentResult = "";
+
     lastSpokenResult = "";
 
 }
@@ -496,6 +611,7 @@ function stopCamera() {
 
 </body>
 </html>
+
 
 
 
