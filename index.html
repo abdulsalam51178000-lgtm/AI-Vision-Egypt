@@ -1,161 +1,424 @@
 
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>AI Vision Egypt</title>
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-
 <style>
+* {
+    box-sizing: border-box;
+}
+
 body {
-  font-family: Arial;
-  background: #071b35;
-  color: white;
-  text-align: center;
-  padding: 15px;
+    margin: 0;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #07182e, #102e50);
+    color: white;
+    text-align: center;
 }
-h1 { color: gold; }
+
+.container {
+    max-width: 650px;
+    margin: auto;
+    padding: 25px;
+    background: #132b46;
+    border: 2px solid #d4a63b;
+    border-radius: 20px;
+}
+
+h1 {
+    color: #f3c34e;
+    font-size: 30px;
+}
+
+.subtitle {
+    color: #ddd;
+    margin-bottom: 20px;
+}
+
+#camera {
+    width: 100%;
+    max-width: 400px;
+    min-height: 250px;
+    margin: 15px auto;
+    overflow: hidden;
+    border: 3px solid #d4a63b;
+    border-radius: 15px;
+}
+
+#camera canvas {
+    width: 100% !important;
+    height: auto !important;
+    display: block;
+}
+
 button {
-  background: #d5a52b;
-  color: #071b35;
-  border: 0;
-  padding: 15px 25px;
-  border-radius: 10px;
-  font-size: 18px;
-  cursor: pointer;
+    padding: 14px 25px;
+    margin: 8px;
+    border: none;
+    border-radius: 10px;
+    background: #d4a63b;
+    color: #07182e;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
 }
-#camera { margin: 20px auto; }
-#result {
-  font-size: 23px;
-  color: gold;
-  margin: 20px;
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
-#status { color: white; }
+
+.result {
+    margin-top: 20px;
+    padding: 20px;
+    background: #0b1c30;
+    border: 1px solid #d4a63b;
+    border-radius: 12px;
+}
+
+#objectName {
+    color: #f3c34e;
+    font-size: 25px;
+    font-weight: bold;
+}
+
+#confidence {
+    color: #fff;
+    font-size: 18px;
+}
+
+#status {
+    color: #f3c34e;
+    margin-top: 15px;
+}
+
+.footer {
+    margin-top: 25px;
+    color: #aaa;
+    font-size: 13px;
+}
 </style>
 </head>
 
 <body>
 
-<h1>🇪🇬 AI Vision Egypt</h1>
-<h3>المرشد السياحي الذكي</h3>
+<div class="container">
 
-<button id="startButton" onclick="startCamera()">
-تشغيل الكاميرا
-</button>
+    <h1>AI VISION EGYPT</h1>
 
-<div id="camera"></div>
-<div id="status">اضغط تشغيل الكاميرا للبدء</div>
-<div id="result">في انتظار التعرف على الأثر...</div>
+    <p class="subtitle">
+        Discover Ancient Egyptian Monuments Using Artificial Intelligence
+    </p>
+
+    <div id="camera"></div>
+
+    <p id="status">Ready to start</p>
+
+    <button id="startButton" onclick="startCamera()">
+        Start Camera
+    </button>
+
+    <button id="stopButton" onclick="stopCamera()" disabled>
+        Stop Camera
+    </button>
+
+    <div class="result">
+
+        <h3>Recognition Result</h3>
+
+        <p id="objectName">Waiting for camera...</p>
+
+        <p id="confidence">Accuracy: 0%</p>
+
+    </div>
+
+    <button onclick="speakCurrentResult()">
+        Speak Result
+    </button>
+
+    <div class="footer">
+        AI Vision Egypt | Powered by Teachable Machine
+    </div>
+
+</div>
+
+<!-- TensorFlow.js -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.4/dist/tf.min.js"></script>
+
+<!-- Teachable Machine -->
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
 
 <script>
+
+// MODEL SETTINGS
+
 const MODEL_URL =
 "https://teachablemachine.withgoogle.com/models/CvfTSTcqR/";
 
 let model;
 let webcam;
 let running = false;
-let lastSpoken = "";
-let lastSpeakTime = 0;
+let currentResult = "";
+let lastSpokenResult = "";
+let lastSpokenTime = 0;
 
-function speakArabic(message) {
-  if (!("speechSynthesis" in window)) {
-    document.getElementById("status").textContent =
-      "المتصفح لا يدعم النطق الصوتي";
-    return;
-  }
+const THRESHOLD = 0.75;
 
-  window.speechSynthesis.cancel();
+// LOAD MODEL
 
-  const speech = new SpeechSynthesisUtterance(message);
-  speech.lang = "ar-EG";
-  speech.rate = 0.9;
-  speech.pitch = 1;
+async function loadModel() {
 
-  window.speechSynthesis.speak(speech);
+    const modelURL = MODEL_URL + "model.json";
+    const metadataURL = MODEL_URL + "metadata.json";
+
+    model = await tmImage.load(modelURL, metadataURL);
+
 }
+
+// START CAMERA
 
 async function startCamera() {
-  if (running) return;
 
-  try {
-    document.getElementById("status").textContent =
-      "جاري تحميل الذكاء الاصطناعي...";
+    if (running) return;
 
-    model = await tmImage.load(
-      MODEL_URL + "model.json",
-      MODEL_URL + "metadata.json"
-    );
+    try {
 
-    webcam = new tmImage.Webcam(400, 300, true);
+        document.getElementById("status").innerText =
+        "Loading AI model...";
 
-    await webcam.setup();
-    await webcam.play();
+        if (!model) {
+            await loadModel();
+        }
 
-    document.getElementById("camera").innerHTML = "";
-    document.getElementById("camera").appendChild(webcam.canvas);
+        document.getElementById("status").innerText =
+        "Starting camera...";
 
-    running = true;
+        webcam = new tmImage.Webcam(400, 300, false);
 
-    document.getElementById("status").textContent =
-      "الكاميرا تعمل بنجاح";
+        await webcam.setup({
+            facingMode: "environment"
+        });
 
-    speakArabic("مرحباً بك في المرشد السياحي الذكي لمصر");
+        await webcam.play();
 
-    window.requestAnimationFrame(loop);
+        document.getElementById("camera").innerHTML = "";
 
-  } catch (error) {
-    console.error(error);
-    document.getElementById("status").textContent =
-      "حدث خطأ: " + error.message;
-  }
-}
+        document.getElementById("camera").appendChild(
+            webcam.canvas
+        );
 
-async function loop() {
-  if (!running) return;
+        running = true;
 
-  webcam.update();
-  await predict();
+        document.getElementById("startButton").disabled = true;
+        document.getElementById("stopButton").disabled = false;
 
-  window.requestAnimationFrame(loop);
-}
+        document.getElementById("status").innerText =
+        "Camera is running. Point it at an Egyptian monument.";
 
-async function predict() {
-  const predictions = await model.predict(webcam.canvas);
+        // Unlock English speech after user interaction
+        window.speechSynthesis.cancel();
 
-  predictions.sort((a, b) => b.probability - a.probability);
+        predictLoop();
 
-  const best = predictions[0];
-  const confidence = Math.round(best.probability * 100);
+    } catch (error) {
 
-  if (confidence >= 75) {
-    document.getElementById("result").textContent =
-      "الأثر المكتشف: " + best.className +
-      " (" + confidence + "%)";
+        console.error(error);
 
-    const now = Date.now();
+        document.getElementById("status").innerText =
+        "Camera or model error: " + error.message;
 
-    if (
-      best.className !== lastSpoken ||
-      now - lastSpeakTime > 6000
-    ) {
-      lastSpoken = best.className;
-      lastSpeakTime = now;
-
-      speakArabic("هذا الأثر هو " + best.className);
     }
 
-  } else {
-    document.getElementById("result").textContent =
-      "لم يتم التعرف على أثر بوضوح";
-  }
 }
+
+// RECOGNITION LOOP
+
+async function predictLoop() {
+
+    if (!running) return;
+
+    webcam.update();
+
+    await predict();
+
+    if (running) {
+        requestAnimationFrame(predictLoop);
+    }
+
+}
+
+// PREDICT OBJECT
+
+async function predict() {
+
+    try {
+
+        const predictions = await model.predict(webcam.canvas);
+
+        predictions.sort((a, b) =>
+            b.probability - a.probability
+        );
+
+        const best = predictions[0];
+
+        const name = best.className;
+
+        const accuracy = best.probability;
+
+        if (accuracy >= THRESHOLD) {
+
+            currentResult = name;
+
+            document.getElementById("objectName").innerText =
+            name;
+
+            document.getElementById("confidence").innerText =
+            "Accuracy: " + (accuracy * 100).toFixed(1) + "%";
+
+            document.getElementById("status").innerText =
+            "Monument detected successfully!";
+
+            // Send result to MIT App Inventor if available
+
+            if (
+                window.AppInventor &&
+                typeof window.AppInventor.setWebViewString === "function"
+            ) {
+                window.AppInventor.setWebViewString(name);
+            }
+
+            // SPEAK IN ENGLISH
+
+            const now = Date.now();
+
+            if (
+                name !== lastSpokenResult ||
+                now - lastSpokenTime > 6000
+            ) {
+
+                speakEnglish(
+                    "This monument is " + name
+                );
+
+                lastSpokenResult = name;
+                lastSpokenTime = now;
+
+            }
+
+        } else {
+
+            document.getElementById("objectName").innerText =
+            "No clear monument detected";
+
+            document.getElementById("confidence").innerText =
+            "Accuracy: " + (accuracy * 100).toFixed(1) + "%";
+
+        }
+
+    } catch (error) {
+
+        console.error("Prediction error:", error);
+
+    }
+
+}
+
+// ENGLISH TEXT TO SPEECH
+
+function speakEnglish(text) {
+
+    if (!window.speechSynthesis) {
+        document.getElementById("status").innerText =
+        "Speech is not supported in this browser.";
+        return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    const speech = new SpeechSynthesisUtterance(text);
+
+    speech.lang = "en-US";
+    speech.rate = 0.9;
+    speech.pitch = 1;
+    speech.volume = 1;
+
+    const voices = window.speechSynthesis.getVoices();
+
+    const englishVoice = voices.find(voice =>
+        voice.lang.toLowerCase().startsWith("en-us")
+    ) || voices.find(voice =>
+        voice.lang.toLowerCase().startsWith("en")
+    );
+
+    if (englishVoice) {
+        speech.voice = englishVoice;
+    }
+
+    window.speechSynthesis.speak(speech);
+
+}
+
+// SPEAK CURRENT RESULT
+
+function speakCurrentResult() {
+
+    if (currentResult) {
+
+        speakEnglish(
+            "This monument is " + currentResult
+        );
+
+    } else {
+
+        speakEnglish(
+            "Please point the camera at an Egyptian monument"
+        );
+
+    }
+
+}
+
+// STOP CAMERA
+
+function stopCamera() {
+
+    running = false;
+
+    if (webcam) {
+        webcam.stop();
+    }
+
+    window.speechSynthesis.cancel();
+
+    document.getElementById("camera").innerHTML = "";
+
+    document.getElementById("status").innerText =
+    "Camera stopped";
+
+    document.getElementById("startButton").disabled = false;
+    document.getElementById("stopButton").disabled = true;
+
+    document.getElementById("objectName").innerText =
+    "Waiting for camera...";
+
+    document.getElementById("confidence").innerText =
+    "Accuracy: 0%";
+
+    currentResult = "";
+    lastSpokenResult = "";
+
+}
+
 </script>
 
 </body>
 </html>
+
 
 
 
