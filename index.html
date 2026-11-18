@@ -2,205 +2,160 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Vision Egypt</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Vision Egypt</title>
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background: #10243a;
-      color: white;
-      margin: 0;
-      padding: 20px;
-    }
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
-    h1 {
-      color: #e7bd65;
-    }
-
-    #webcam-container {
-      margin: 20px auto;
-      width: 100%;
-      max-width: 400px;
-    }
-
-    canvas {
-      width: 100%;
-      height: auto;
-      border: 3px solid #e7bd65;
-      border-radius: 12px;
-    }
-
-    button {
-      background: #d6a94d;
-      color: #10243a;
-      border: none;
-      padding: 13px 25px;
-      margin: 8px;
-      border-radius: 8px;
-      font-size: 18px;
-      cursor: pointer;
-    }
-
-    #status {
-      margin: 15px;
-      color: #ffffff;
-    }
-
-    #result {
-      background: #1b3855;
-      padding: 15px;
-      border-radius: 10px;
-      margin-top: 15px;
-      font-size: 20px;
-    }
-  </style>
-
-  <!-- TensorFlow.js يجب أن يُحمّل قبل Teachable Machine -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
-
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.3/dist/teachablemachine-image.min.js"></script>
+<style>
+body {
+  font-family: Arial;
+  background: #071b35;
+  color: white;
+  text-align: center;
+  padding: 15px;
+}
+h1 { color: gold; }
+button {
+  background: #d5a52b;
+  color: #071b35;
+  border: 0;
+  padding: 15px 25px;
+  border-radius: 10px;
+  font-size: 18px;
+  cursor: pointer;
+}
+#camera { margin: 20px auto; }
+#result {
+  font-size: 23px;
+  color: gold;
+  margin: 20px;
+}
+#status { color: white; }
+</style>
 </head>
 
 <body>
 
-  <h1>AI Vision Egypt</h1>
-  <p>اكتشف الآثار المصرية باستخدام الذكاء الاصطناعي</p>
+<h1>🇪🇬 AI Vision Egypt</h1>
+<h3>المرشد السياحي الذكي</h3>
 
-  <button onclick="init()">تشغيل الكاميرا</button>
-  <button onclick="stopCamera()">إيقاف الكاميرا</button>
+<button id="startButton" onclick="startCamera()">
+تشغيل الكاميرا
+</button>
 
-  <p id="status">اضغط على تشغيل الكاميرا للبدء</p>
+<div id="camera"></div>
+<div id="status">اضغط تشغيل الكاميرا للبدء</div>
+<div id="result">في انتظار التعرف على الأثر...</div>
 
-  <div id="webcam-container"></div>
+<script>
+const MODEL_URL =
+"https://teachablemachine.withgoogle.com/models/CvfTSTcqR/";
 
-  <div id="result">
-    نتيجة التعرف ستظهر هنا
-  </div>
+let model;
+let webcam;
+let running = false;
+let lastSpoken = "";
+let lastSpeakTime = 0;
 
-  <script>
-    const URL = "https://teachablemachine.withgoogle.com/models/CvfTSTcqR/";
+function speakArabic(message) {
+  if (!("speechSynthesis" in window)) {
+    document.getElementById("status").textContent =
+      "المتصفح لا يدعم النطق الصوتي";
+    return;
+  }
 
-    let model = null;
-    let webcam = null;
-    let running = false;
-    let starting = false;
+  window.speechSynthesis.cancel();
 
-    async function init() {
-      if (running || starting) return;
+  const speech = new SpeechSynthesisUtterance(message);
+  speech.lang = "ar-EG";
+  speech.rate = 0.9;
+  speech.pitch = 1;
 
-      starting = true;
+  window.speechSynthesis.speak(speech);
+}
 
-      const status = document.getElementById("status");
-      const result = document.getElementById("result");
+async function startCamera() {
+  if (running) return;
 
-      try {
-        status.innerText = "جارٍ تحميل المكتبات والنموذج...";
-        result.innerText = "انتظر قليلاً...";
+  try {
+    document.getElementById("status").textContent =
+      "جاري تحميل الذكاء الاصطناعي...";
 
-        if (typeof tf === "undefined") {
-          throw new Error("مكتبة TensorFlow لم يتم تحميلها. تحقق من اتصال الإنترنت.");
-        }
+    model = await tmImage.load(
+      MODEL_URL + "model.json",
+      MODEL_URL + "metadata.json"
+    );
 
-        if (typeof tmImage === "undefined") {
-          throw new Error("مكتبة Teachable Machine لم يتم تحميلها.");
-        }
+    webcam = new tmImage.Webcam(400, 300, true);
 
-        if (!navigator.mediaDevices ||
-            !navigator.mediaDevices.getUserMedia) {
-          throw new Error("المتصفح لا يدعم الكاميرا هنا. افتح الرابط في Chrome باستخدام HTTPS.");
-        }
+    await webcam.setup();
+    await webcam.play();
 
-        model = await tmImage.load(
-          URL + "model.json",
-          URL + "metadata.json"
-        );
+    document.getElementById("camera").innerHTML = "";
+    document.getElementById("camera").appendChild(webcam.canvas);
 
-        webcam = new tmImage.Webcam(400, 300, true);
+    running = true;
 
-        await webcam.setup({
-          facingMode: "environment"
-        });
+    document.getElementById("status").textContent =
+      "الكاميرا تعمل بنجاح";
 
-        await webcam.play();
+    speakArabic("مرحباً بك في المرشد السياحي الذكي لمصر");
 
-        document.getElementById("webcam-container").innerHTML = "";
-        document.getElementById("webcam-container")
-          .appendChild(webcam.canvas);
+    window.requestAnimationFrame(loop);
 
-        running = true;
-        starting = false;
+  } catch (error) {
+    console.error(error);
+    document.getElementById("status").textContent =
+      "حدث خطأ: " + error.message;
+  }
+}
 
-        status.innerText = "الكاميرا تعمل بنجاح!";
-        window.requestAnimationFrame(loop);
+async function loop() {
+  if (!running) return;
 
-      } catch (error) {
-        starting = false;
-        running = false;
+  webcam.update();
+  await predict();
 
-        if (webcam) {
-          try {
-            webcam.stop();
-          } catch (e) {}
-          webcam = null;
-        }
+  window.requestAnimationFrame(loop);
+}
 
-        status.innerText = "حدث خطأ: " + error.message;
-        result.innerText = "تعذر تشغيل الكاميرا أو النموذج.";
+async function predict() {
+  const predictions = await model.predict(webcam.canvas);
 
-        console.error("Camera error:", error);
-      }
+  predictions.sort((a, b) => b.probability - a.probability);
+
+  const best = predictions[0];
+  const confidence = Math.round(best.probability * 100);
+
+  if (confidence >= 75) {
+    document.getElementById("result").textContent =
+      "الأثر المكتشف: " + best.className +
+      " (" + confidence + "%)";
+
+    const now = Date.now();
+
+    if (
+      best.className !== lastSpoken ||
+      now - lastSpeakTime > 6000
+    ) {
+      lastSpoken = best.className;
+      lastSpeakTime = now;
+
+      speakArabic("هذا الأثر هو " + best.className);
     }
 
-    async function loop() {
-      if (!running || !webcam) return;
-
-      webcam.update();
-      await predict();
-
-      if (running) {
-        window.requestAnimationFrame(loop);
-      }
-    }
-
-    async function predict() {
-      if (!model || !webcam) return;
-
-      const predictions = await model.predict(webcam.canvas);
-
-      predictions.sort((a, b) =>
-        b.probability - a.probability
-      );
-
-      const best = predictions[0];
-
-      document.getElementById("result").innerText =
-        "التعرف على: " + best.className +
-        " — نسبة الثقة: " +
-        (best.probability * 100).toFixed(1) + "%";
-    }
-
-    function stopCamera() {
-      running = false;
-      starting = false;
-
-      if (webcam) {
-        try {
-          webcam.stop();
-        } catch (e) {}
-        webcam = null;
-      }
-
-      document.getElementById("webcam-container").innerHTML = "";
-      document.getElementById("status").innerText = "تم إيقاف الكاميرا";
-      document.getElementById("result").innerText =
-        "نتيجة التعرف ستظهر هنا";
-    }
-  </script>
+  } else {
+    document.getElementById("result").textContent =
+      "لم يتم التعرف على أثر بوضوح";
+  }
+}
+</script>
 
 </body>
 </html>
+
 
 
