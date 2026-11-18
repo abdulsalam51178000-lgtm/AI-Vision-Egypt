@@ -166,6 +166,33 @@ let running = false;
 let currentResult = "";
 let lastSpokenResult = "";
 let lastSpokenTime = 0;
+    
+const monumentInfo = {
+    "Pyramids": {
+        name: "The Great Pyramids of Giza",
+        location: "Giza, Egypt",
+        description: "The Great Pyramids are among the most famous ancient monuments in the world. They were built as tombs for the ancient Egyptian kings."
+    },
+
+    "Sphinx": {
+        name: "The Great Sphinx",
+        location: "Giza, Egypt",
+        description: "The Great Sphinx is a giant statue with a lion's body and a human head. It is one of the most famous symbols of ancient Egypt."
+    },
+
+    "Tutankhamun": {
+        name: "King Tutankhamun's Treasures",
+        location: "Luxor, Egypt",
+        description: "King Tutankhamun was a young Egyptian pharaoh. His tomb contained many beautiful treasures."
+    },
+
+    "Abu Simbel": {
+        name: "Abu Simbel Temples",
+        location: "Aswan, Egypt",
+        description: "Abu Simbel is famous for its enormous statues of Pharaoh Ramses the Second."
+    }
+};
+
 
 const THRESHOLD = 0.75;
 
